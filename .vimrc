@@ -9,6 +9,14 @@ set cmdheight=3
 syntax on
 filetype plugin indent on
 
+" Menu
+set wildmenu
+set wcm=<Tab>
+menu ProjectDirSelection.ProjectLinuxKernel :let SessionProjectDir="/mnt/kernel/linux"<CR>
+menu ProjectDirSelection.ProjectQEMU  :let SessionProjectDir="/mnt/ssd240/qemu-mainline"<CR>
+map <F9> :emenu ProjectDirSelection.<Tab>
+
+
 highlight ExtraWhitespace ctermbg=red guibg=red
 match ExtraWhitespace /\s\+$/
 
@@ -449,17 +457,45 @@ function! GrepGetIncludeString(only_headers)
   return '--include=*.[hcS]'
 endfunc
 
+function! Exec(cmd)
+  redir =>output
+  silent exec a:cmd
+  redir END
+  return output
+endfunc
+
+function! CreateScratchBuf()
+  :new
+  :setlocal buftype=nofile
+  :setlocal bufhidden=wipe
+  :setlocal noswapfile
+endfunc
+
+function! OpenGrepResult()
+  let l = getline('.')
+  let filepath = split(l, ':')[0]
+  let lineno = split(l, ':')[1]
+  silent exe "tabe " . filepath
+  call cursor(lineno, 0)
+
+  echo filepath . "--" . lineno
+endfunction
+
 function! GrepInProject(token, only_headers, additional_filter)
   let cmd = '!grep -R -n'
   let cmd = cmd . ' ' . GrepGetIncludeString(a:only_headers)
   let cmd = cmd . ' ' . a:token
   let cmd = cmd . ' ' . g:SessionProjectDir
-  echo cmd
   if len(a:additional_filter) > 0
     let cmd = cmd . ' | grep ' . a:additional_filter
   endif
   let cmd = cmd . ' | less'
-  execute(cmd)
+  echo cmd
+  "let cmd="!grep -Rn --include=*.[ch] try_charge /mnt/kernel/linux/"
+  call CreateScratchBuf()
+  silent exe "read " . cmd
+  :1delete
+  return
 endfunc
 
 function! HexToAscii(hexstring)
@@ -878,7 +914,7 @@ noremap <Leader>5 :!bitdescriptor <C-R><C-W><CR>
 noremap <F7> :!make<CR>
 " noremap <Leader>q :call AlignComments(70)<CR>
 noremap <Leader>1 :call NamePrintfConstants()<CR>
-noremap <F9> :call GotoNextLabelRef()<CR>
+"noremap <F9> :call GotoNextLabelRef()<CR>
 noremap hj :call BytecodeDeclarePointerLabel()<CR>
 noremap ha :call HexToAscii("<C-R><C-W>")<CR>
 "noremap <F2> :call CountStructBits()<CR>
@@ -890,6 +926,7 @@ noremap ha :call HexToAscii("<C-R><C-W>")<CR>
 noremap <F2> :w<CR>:make T=1 upd<CR>
 noremap <F3> :w<CR>:make T=2 upd<CR>
 noremap <F4> :w<CR>:make T=3 upd<CR>
+noremap qw :call OpenGrepResult()<CR>
 "noremap <F2> :w<CR>:!make && make jr && make ju && make jd<CR>
 "noremap <F3> :call BytecodeProcessStrings(10)<CR>:call ToNextAsciiBytecode()<CR>
 "noremap <F3> :call TryFixTextLabel()<CR>
